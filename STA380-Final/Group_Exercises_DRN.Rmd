@@ -1,0 +1,1104 @@
+---
+title: "Group_Exercises"
+author: "Dylan Nikol"
+date: "8/18/2020"
+output: github_document
+---
+
+**Group Members: Samir Epili, Jake Johnson, Dylan Nikol, Luke Stevens**
+
+
+
+# Visual story telling part 1: green buildings
+
+```{r green buildings set up, include=FALSE}
+rm(list=ls())
+
+library(mosaic)
+library(readr)
+green <- read_csv("~/MSBAsummer20/STA380-master/data/greenbuildings.csv")
+attach(green)
+colnames(green)
+head(green)
+
+```
+
+```{r echo=FALSE}
+# Exploratory Analysis
+par(mfrow=c(3,4))
+
+hist(cluster,breaks = 20, col="forestgreen", main = NULL)
+hist(size,breaks = 20, col="forestgreen", main = NULL)
+hist(empl_gr,breaks = 20, col="forestgreen", main = NULL)
+hist(Rent,breaks = 20, col="forestgreen", main = NULL)
+hist(leasing_rate,breaks = 20, col="forestgreen", main = NULL)
+hist(stories, breaks = 20, col="forestgreen", main = NULL)
+hist(age,breaks = 50, col="forestgreen", main = NULL)
+hist(renovated,breaks = 20, col="forestgreen", main = NULL)
+hist(class_a,breaks = 20, col="forestgreen", main = NULL)
+hist(class_b,breaks = 20, col="forestgreen", main = NULL)
+hist(LEED,breaks = 20, col="forestgreen", main = NULL)
+hist(Energystar,breaks = 20, col="forestgreen", main = NULL)
+hist(green_rating,breaks = 20, col="forestgreen", main = NULL)
+hist(net,breaks = 20, col="forestgreen", main = NULL)
+hist(amenities,breaks = 20, col="forestgreen", main = NULL)
+hist(cd_total_07,breaks = 20, col="forestgreen", main = NULL)
+hist(hd_total07,breaks = 20, col="forestgreen", main = NULL)
+hist(total_dd_07,breaks = 20, col="forestgreen", main = NULL)
+hist(Precipitation,breaks = 20, col="forestgreen", main = NULL)
+hist(Gas_Costs,breaks = 20, col="forestgreen", main = NULL)
+hist(Electricity_Costs,breaks = 20, col="forestgreen", main = NULL)
+hist(cluster_rent,breaks = 20, col="forestgreen", main = NULL)
+
+```
+
+The distribution of age seems to be bimodal, with peaks around 30 and 90. Mean rent is around $25 per square foot, however the distribution is skewed right and there seems to be a lot of outliers. The class A and class B distributions indicate that the data consists of 3 classes of buildings: A, B, C. There also seems to be very few green-rated buildings. Overall, the buildings have a wide range of characteristics, thus, generalizations from the entire dataset may not be useful in making accurate predictions for your project. For this reason, we decided to subset the data with features similar to your building.
+
+### Subset 1: Renovated buildings and buildings under 20 years old
+```{r echo=FALSE}
+subset_1 <- green[ which(age < 20 | renovated==1) , ]
+mean(subset_1$Rent)
+summary(subset_1$Rent)
+hist(subset_1$Rent, main ='Rent Distribution', xlab = 'Rent',col="forestgreen" )
+```
+We only looked at buildings under 20 years old or those that have been renovated. This gives us a more realistic comparison, by only considering similar buildings to yours.
+
+```{r}
+sub1_a = subset(subset_1, class_a==1)
+sub1_not_a = subset(subset_1, class_a==0)
+
+subset_level2 = subset(sub1_a, green_rating==1)
+not_subset_level2 = subset(sub1_a, green_rating==0)
+```
+Here we further subset into buildings that are Class A, and not Class A (our building will be Class A). We then split the buildings within Class A based on if they are green or not.
+
+```{r echo=FALSE}
+hist(sub1_a$Rent, main ='Rent Distribution of Class A Buildings', xlab = 'Rent', col="forestgreen")
+print('Rent is concentrated around $20-$30 and has a lof of skew. ')
+par(mfrow = c(1,2))
+hist(not_subset_level2$Rent, main ='Class A: Not Green', xlab = 'Rent', col="forestgreen")
+hist(subset_level2$Rent, main ='Class A: Green', xlab = 'Rent', col="forestgreen")
+```
+
+Bootstrapping for the median Rent of these buildings shows a very non-normal distribution. Thus, the guru should not have used the median to compare green and non-green buildings as there is a skew towards lower rents, making it an ineffective way to compare green and non-green buildings. The bootstrapped mean Rent, however, is very normally distributed and was therefore used when comparing the Rents of green and non-green buildings. 
+
+### Boostrapping
+```{r echo=FALSE}
+set.seed(12345)
+par(mfrow = c(2,2))
+# Median Bootstrapping
+boot_a_green_med = do(2500)*{
+  median(resample(subset_level2)$Rent)
+}
+
+boot_a_ng_med = do(2500)*{
+  median(resample(not_subset_level2)$Rent)
+}
+
+# Mean Bootstrapping
+boot_a_green = do(2500)*{
+  mean(resample(subset_level2)$Rent)
+}
+
+boot_a_ng_mean = do(2500)*{
+  mean(resample(not_subset_level2)$Rent)
+}
+```
+
+```{r echo=FALSE}
+par(mfrow = c(2,2))
+hist(boot_a_green_med$result, 30, main = 'Median Rent: Green Buildings', col='forestgreen', xlab = 'Rent')
+#sd(boot_a_green_med$result)
+#confint(boot_a_green_med, level=0.95)
+
+hist(boot_a_ng_med$result, 30, main = 'Median Rent: Not Green Buildings', col='forestgreen', xlab = 'Rent')
+#sd(boot_a_ng_med$result)
+#confint(boot_a_ng_med, level=0.95)
+
+hist(boot_a_green$result, 30, main = 'Mean Rent: Green Buildings', col='forestgreen', xlab = 'Rent')
+#sd(boot_a_green$result)
+
+hist(boot_a_ng_mean$result, 30, main = 'Mean Rent: Not Green Buildings', col='forestgreen', xlab = 'Rent')
+#sd(boot_a_ng_mean$result)
+
+```
+
+### Bootstrapping Summary Statistics
+
+```{r echo=FALSE}
+
+confint(boot_a_green$result, level=0.95)
+confint(boot_a_ng_mean$result, level=0.95)
+
+print(paste("Mean rent for Green Class A Buildings is: $", round(mean(boot_a_green$result), digits = 2)))
+print(paste("Mean rent for Non-Green Class A Buildings is: $", round(mean(boot_a_ng_mean$result), digits = 2)))
+
+# Rent premium per month for green building
+options(scipen=999)
+rent_prem = (31.11072-30.69477)*250000
+print(paste("Rent premium for a Green building: $", round(rent_prem, digits = 2)))
+print(paste("Ratio of Guru's estimate to ours :", round(rent_prem/650000, digits = 2)))
+green_prem = .05*100000000
+print(paste("Payback period for green certification: ", round((green_prem/rent_prem), digits = 2)))
+
+upper_quart_prem = (31.59-30.69477)*250000
+print(paste("Payback period for green certification (75th percentile rent):",
+              round((green_prem/upper_quart_prem), digits = 2)))
+
+```
+
+Assuming the average rent premium of $0.42, for a green building,the payback period for green certification is 48.08 years.
+If you can charge the $0.90 premium (premium of the upper quartile of green buildings), you can reduce the payback period for Green certification by more than 50%. It would now be only be  22.34 years.
+
+
+### Discussion 
+All in all, we do not agree with the conclusions of your stats Guru. The person had the right idea about only using at a subset of the data for their analysis, but they misstep in two ways. First, they should not have arbitrarily removed outlier buildings from their analysis. Instead, they should have taken a more deliberate and methodical approach to subsetting the data. Our method of isolating newer or renovated buildings that fall in the same class as your building produces more precise figures for estimation. Second, they used the wrong metric to make predictions. The Guru made their estimations using the median rent, however the mean rent is a more evenly distributed figure and allows for more accurate predictions. You can see this from the histograms of the median versus the mean rents.
+
+At every level of subsetting we performed, we see that the mean rents of green and non-green buildings are very similar. This indicates that although people may like the idea of renting in a green building, it doesn't seem like they are willing to pay the premium required to cover a green certification. 
+
+\newpage
+
+# Visual story telling part 2: flights at ABIA
+
+# Visual story telling
+
+One of the worst part of flying is all the extra time spent dealing with delays. They can make you late for important deadlines and cause unnecessary stress in an already stressful experience. We will analyze this data set of flights to and from the Austin airport to provide helpful insights on trends in delayed flights.
+
+```{r abia1}
+library(mosaic)
+library(tidyverse)
+library(ggplot2)
+abia = read.csv("~/MSBAsummer20/STA380-master/data/ABIA.csv", stringsAsFactors=FALSE)
+attach(abia)
+depDelay_clean = abia[!is.na(abia$DepDelay), ]
+arrDelay_clean = abia[!is.na(abia$ArrDelay), ]
+summary(abia)
+```
+
+Which airline has the worst departure delays?
+```{r abia2}
+airline_delay = depDelay_clean %>%
+  group_by(UniqueCarrier)  %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(airline_delay, aes(x=reorder(UniqueCarrier, avg_delay_mins), y=avg_delay_mins)) + 
+  geom_bar(stat='identity', color='forest green') +
+  labs(title = "Average departure delay by airline", x="Unique Carrier", y="Delay(mins)")
+```
+
+What about by arrival delays?
+```{r abia3}
+airline_arr_delay = arrDelay_clean %>%
+  group_by(UniqueCarrier)  %>%
+  summarize(avg_delay_mins = mean(ArrDelay))
+
+ggplot(airline_arr_delay, aes(x=reorder(UniqueCarrier, avg_delay_mins), y=avg_delay_mins)) + 
+  geom_bar(stat='identity', color='forest green') +
+  labs(title = "Average arrival delay by airline", x="Unique Carrier", y="Delay(mins)")
+```
+
+When should you leave?
+For this, we will examine the top four most frequent airline fliers to see not only time trends but if different airlines handle these differences in different ways.
+
+Month
+```{r abia4}
+airline_list = c('AA', 'WN', 'CO', 'YV')
+
+flights_per_month = depDelay_clean %>%
+  filter(UniqueCarrier %in% airline_list) %>%
+  group_by(UniqueCarrier, Month) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(flights_per_month, aes(x=Month, y=avg_delay_mins)) + 
+  geom_line( color='forest green') +
+  geom_point( size=4, shape=21, fill="white") +
+  facet_wrap(~ UniqueCarrier, nrow = 2) +
+  theme_bw(base_size=18) +
+  scale_x_continuous(breaks = 1:12) +
+  labs(title = "Average departure delay by month", y="Delay (mins)")
+```
+
+Day of Month
+```{r abia5}
+flights_day_month = depDelay_clean %>%
+  filter(UniqueCarrier %in% airline_list) %>%
+  group_by(UniqueCarrier, DayofMonth) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(flights_day_month, aes(x=DayofMonth, y=avg_delay_mins)) + 
+  geom_line( color='forest green') +
+  facet_wrap(~ UniqueCarrier, nrow = 2) +
+  theme_bw(base_size=18) +
+  scale_x_continuous(breaks = c(1,10,20,30)) +
+  labs(title = "Average departure delay by month", y="Delay (mins)")
+```
+
+Day of Week
+```{r abia6}
+flights_day_week = depDelay_clean %>%
+  filter(UniqueCarrier %in% airline_list) %>%
+  group_by(UniqueCarrier, DayOfWeek) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(flights_day_week, aes(x=DayOfWeek, y=avg_delay_mins)) + 
+  geom_line( color='forest green') +
+  geom_point( size=4, shape=21, fill="white") +
+  facet_wrap(~ UniqueCarrier, nrow = 2) +
+  theme_bw(base_size=18) +
+  scale_x_continuous(breaks = 1:31) +
+  labs(title = "Average departure delay by day of week", y="Delay (mins)")
+```
+
+Delays during the morning
+```{r abia7}
+morning = subset(depDelay_clean, DepTime > 600 & DepTime < 1200)
+
+flights_morning = morning %>%
+  filter(UniqueCarrier %in% airline_list) %>%
+  group_by(UniqueCarrier, DepTime) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(flights_morning, aes(x=DepTime, y=avg_delay_mins)) + 
+  geom_line( color='forest green') +
+  facet_wrap(~ UniqueCarrier, nrow = 2) +
+  theme_bw(base_size=18) +
+  scale_x_continuous(breaks = c(600,700,800,900,1000,1100,1200)) +
+  labs(title = "Average departure delay - morning", y="Delay (mins)")
+```
+
+
+Delays during the afternoon
+```{r abia8}
+afternoon = subset(depDelay_clean, DepTime > 1200 & DepTime < 2000)
+
+flights_afternoon = afternoon %>%
+  filter(UniqueCarrier %in% airline_list) %>%
+  group_by(UniqueCarrier, DepTime) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(flights_afternoon, aes(x=DepTime, y=avg_delay_mins)) + 
+  geom_line( color='forest green') +
+  facet_wrap(~ UniqueCarrier, nrow = 2) +
+  theme_bw(base_size=18) +
+  scale_x_continuous(breaks = c(1200,1400,1600,1800,2000)) +
+  labs(title = "Average departure delay - afternoon", y="Delay (mins)")
+```
+
+Lets examine the top 25 most popular airports. This will remove outliers and noise from the data.
+
+Which destinations are the worst in delaying when you arrive?
+```{r abia9}
+topdest = c('DAL', 'AUS','ATL','DEN','DFW','ELP','HOU','IAH','PHX','ORD','LAX','LAS','JFK','BNA','BWI','EWR','IAD','MDW','LBB','MCO','SAN','SFO','SJC','SLC','FLL')
+
+arr_delay_dest = arrDelay_clean %>%
+  filter(Dest %in% topdest) %>%
+  group_by(Dest) %>%
+  summarize(avg_delay_mins = mean(ArrDelay))
+
+ggplot(arr_delay_dest, aes(x=reorder(Dest, avg_delay_mins), y=avg_delay_mins)) + 
+  geom_bar(stat='identity', color="forest green") +
+  labs(title = "Average arrival delay by Destination", x="Delay (mins)", y="Top Destinations") +
+  coord_flip()
+```
+
+Which places are the worst to leave from in terms of departure delay?
+```{r abia10}
+dep_delay_org = depDelay_clean %>%
+  filter(Origin %in% topdest) %>%
+  group_by(Origin) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(dep_delay_org, aes(x=reorder(Origin, avg_delay_mins), y=avg_delay_mins)) + 
+  geom_bar(stat='identity', color="forest green") +
+  labs(title = "Average departure delay by Origin") +
+  coord_flip()
+```
+
+## Discussion
+Looking into the trends can allow for planning around the worst airlines, times or destinations for delays. The worst airlines to fly on by both departure and arrival delay are EV, OH, and YH. US by far performs the best in both categories. There is a slight trend with flight time and arrival delay with longer flights showing more delay. It is best to avoid traveling at the beginning or end of the business week as these are popular times to fly. There are peaks in delays around 9 and 10 am. IAD, EWR, and ORD show up as high delays both in arrival and departure whereas on the other side of the spectrum, FLL and SLC are actually very negative in departure delays, meaning they tend to get out early.
+
+\newpage
+
+# Portfolio Modeling
+
+We are creating 3 portfolio, each consisting of different weights of six ETFs. The ETFs we chose are Vanguard S&P 500 (VOO), SPDR Gold Trust (GLD), iShares Dow Jones US Home Construction (ITB), iShares Russell 2000 (IWM), Principal Active Income (YLD), and iShares Core US Aggregate Bond (AGG).
+
+We chose these specific securities because they reflect a wide range of asset classes that decrease overall exposure to risk. The VOO tracks movements in the S&P500, GLD tracks the price of gold, ITB tracks companies involved in the production and sale of materials for home construction, IWM tracks movements in the Rusell 2000, YLD provides income from high yield bonds, and AGG tracks US investment-grade bonds.
+
+```{r include=FALSE}
+rm(list=ls())
+
+library(mosaic)
+library(quantmod)
+library(foreach)
+
+mystocks = c("VOO", "GLD", "ITB", "IWM", "YLD", "AGG")
+getSymbols(mystocks,from = "2006-01-01")
+```
+
+### Returns of individual securities
+```{r include=FALSE}
+# Adjust for splits and dividends
+VOOa = adjustOHLC(VOO)
+GLDa = adjustOHLC(GLD)
+ITBa = adjustOHLC(ITB)
+IWMa = adjustOHLC(IWM)
+YLDa = adjustOHLC(YLD)
+AGGa = adjustOHLC(AGG)
+
+# Look at close-to-close changes
+par(mfrow=c(3,2))
+```
+```{r echo=FALSE}
+plot(ClCl(VOOa))
+plot(ClCl(GLDa))
+plot(ClCl(ITBa))
+plot(ClCl(IWMa))
+plot(ClCl(YLDa))
+plot(ClCl(AGGa))
+```
+
+```{r include=FALSE}
+
+# Combine close to close changes in a single matrix
+all_returns = cbind(ClCl(VOOa),ClCl(GLDa),ClCl(ITBa),ClCl(IWMa),ClCl(YLDa),ClCl(AGGa))
+head(all_returns)
+
+# first row is NA because we didn't have a "before" in our data
+all_returns = as.matrix(na.omit(all_returns))
+N = nrow(all_returns)
+```
+
+```{r echo=FALSE}
+# Correlations
+par(mfrow = c(1,1))
+pairs(all_returns)
+```
+
+Pairwise correlation plots
+
+### Create Portfolio with different weight vectors
+
+```{r echo=FALSE}
+acf(all_returns[,1], main="Autocorrelation Plot")
+help(acf)
+
+```
+Capital asset pricing model assumption hold, returns are not correlated with each other.
+
+\newpage
+# Bootstapping
+Bootstrap from 1 to 5000, 20-days of returns for each portfolio. The weights of each security in each portfolio are as follows:
+
+Portfolio 1:
+```{r echo=FALSE, warning=FALSE}
+print(paste("Portfolio 1 Weghts: 0.2, 0.2, 0.2, 0.2, 0.1, 0.1"))
+print(paste("                    VO0, GLD, ITB, IWMB, YLD, AGG"))
+# Sample a random return from the empirical joint distribution
+return.today = resample(all_returns, 1, orig.ids=FALSE)
+
+# Update the value of your holdings
+# Assumes an equal allocation to each asset
+p1_weights = c(0.2,0.2,0.2, 0.2, 0.1,.1)
+p2_weights = c(0.3,0,0.2,0.2,0.3,0)
+p3_weights = c(0.3,0.2,0.2,0.1, 0.15,.05)
+
+#THIS IS P1
+# Now simulate many different possible futures
+# just repeating the above block thousands of times
+initial_wealth = 100000
+sim1 = foreach(i=1:5000, .combine='rbind') %do% {
+	p1_wealth = initial_wealth
+	p1 = p1_weights * p1_wealth
+	n_days = 20
+	wealthtracker = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today = resample(all_returns, 1, orig.ids=FALSE)
+		p1 = p1 + p1*return.today
+		p1_wealth = sum(p1)
+		wealthtracker[today] = p1_wealth
+	}
+	wealthtracker
+}
+
+# each row is a simulated trajectory
+# each column is a data
+hist(sim1[,n_days], 25, main = 'Bootstrapped Outcomes',xlab='Wealth')
+
+# Profit/loss
+print(paste('Total wealth = $', round(mean(sim1[,n_days]),digits = 2)))
+print(paste('Total Gain/Loss = $', round(mean(sim1[,n_days] - initial_wealth), digits = 2)))
+hist(sim1[,n_days]- initial_wealth, breaks=30, main = 'Bootstrapped Outcomes', xlab = 'Gain/Loss',)
+
+# 5% value at risk:
+VaR1 = quantile(sim1[,n_days]- initial_wealth, prob=0.05)
+print(paste('Portfolio 1 value at risk (5%):', round(-VaR1, digits = 2)))
+
+# note: this is  a negative number (a loss`, e.g. -500), but we conventionally
+# express VaR as a positive number (e.g. 500)
+
+
+```
+
+\newpage
+
+Portfolio 2:
+```{r echo=FALSE, warning=FALSE}
+#THIS IS P2
+print(paste("Portfolio 2 Weghts:  0.3, 0.0, 0.2, 0.2, 0.3, 0.0"))
+print(paste("                    VO0, GLD, ITB, IWMB, YLD, AGG"))
+initial_wealth = 100000
+sim2 = foreach(i=1:5000, .combine='rbind') %do% {
+  p2_wealth = initial_wealth
+  p2 = p2_weights * p2_wealth
+  n_days = 20
+  wealthtracker = rep(0, n_days)
+  for(today in 1:n_days) {
+    return.today = resample(all_returns, 1, orig.ids=FALSE)
+    p2 = p2 + p2*return.today
+    p2_wealth = sum(p2)
+    wealthtracker[today] = p2_wealth
+  }
+  wealthtracker
+}
+
+# each row is a simulated trajectory
+# each column is a data
+hist(sim2[,n_days], 25, main = 'Bootstrapped Outcomes',xlab='Wealth')
+
+# Profit/loss
+print(paste('Total wealth = $', round(mean(sim2[,n_days]),digits = 2)))
+print(paste('Total Gain/Loss = $', round(mean(sim2[,n_days] - initial_wealth), digits = 2)))
+hist(sim2[,n_days]- initial_wealth, breaks=30, main = 'Bootstrapped Outcomes', xlab = 'Gain/Loss')
+
+# 5% value at risk:
+VaR2 = quantile(sim2[,n_days]- initial_wealth, prob=0.05)
+print(paste('Portfolio 2 value at risk (5%):', round(-VaR2, digits = 2)))
+
+```
+
+
+\newpage
+
+Portfolio 3:
+```{r echo=FALSE, warning=FALSE}
+print(paste("Portfolio 1 Weghts: 0.3, 0.2, 0.2, 0.1, 0.15, 0.05"))
+print(paste("                    VO0, GLD, ITB, IWMB, YLD, AGG"))
+#THIS IS P3
+# Now simulate many different possible futures
+# just repeating the above block thousands of times
+initial_wealth = 100000
+sim3 = foreach(i=1:5000, .combine='rbind') %do% {
+  p3_wealth = initial_wealth
+  p3 = p3_weights * p3_wealth
+  n_days = 20
+  wealthtracker = rep(0, n_days)
+  for(today in 1:n_days) {
+    return.today = resample(all_returns, 1, orig.ids=FALSE)
+    p3 = p3 + p3*return.today
+    p3_wealth = sum(p3)
+    wealthtracker[today] = p3_wealth
+  }
+  wealthtracker
+}
+
+# each row is a simulated trajectory
+# each column is a data
+hist(sim3[,n_days], 25, main = 'Bootstrapped Outcomes',xlab='Wealth')
+
+# Profit/loss
+print(paste('Total wealth = $', round(mean(sim3[,n_days]),digits = 2)))
+print(paste('Total Gain/Loss = $', round(mean(sim3[,n_days] - initial_wealth), digits = 2)))
+hist(sim3[,n_days]- initial_wealth, breaks=30, main = 'Bootstrapped Outcomes', xlab = 'Gain/Loss')
+
+# 5% value at risk:
+VaR3 = quantile(sim3[,n_days]- initial_wealth, prob=0.05)
+print(paste('Portfolio 3 value at risk (5%):', round(-VaR3, digits = 2)))
+
+```
+
+
+\newpage
+
+# Market Segmentation
+```{r include=FALSE}
+library(ggplot2)
+library(LICORS)  # for kmeans++
+library(foreach)
+library(mosaic)
+social_marketing <- read.csv("~/MSBAsummer20/STA380-master/data/social_marketing.csv", row.names='X')
+colnames(social_marketing)
+
+set.seed(12345)
+class(social_marketing)
+# Center and scale the data
+X = social_marketing[!(social_marketing$spam > 0 & social_marketing$adult > 0),-c(1,5,35:36)]
+X = scale(X, center=TRUE, scale=TRUE) 
+
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(X,"scaled:center")
+sigma = attr(X,"scaled:scale")
+
+head(X)
+```
+
+We used a cluster analysis and a PCA analysis on to segment Twitter followers of NutrientH2O. 
+
+We first cleaned up the data frame by excluding users that posted at least one spam or adult tweet. We did this because these are users that were posting unsolicited advertising or explicit content that went undetected by Twitter bots. We did not want these users to skew our data, and removing those observations provides a more accurate representation of NutrientH2O's followers. The users removed are those whose tweet are characterized as spam, or adult. We also removed users whose tweets are explicitly categorized as chatter or uncategorized. 
+
+### K-means Clustering
+
+#### Model Selection
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#elbow plot for kmeans
+library(foreach)
+k_grid = seq(2,20, by =1)
+SSE_grid = foreach(k = k_grid, .combine='c') %do% 
+  {cluster_k = kmeans(X, k, nstart=50) 
+      cluster_k$tot.withinss 
+  }
+
+plot(k_grid, SSE_grid, main = "Elbow Plot")
+
+#CH Index for kmeans
+N = nrow(X)
+CH_grid = foreach(k = k_grid, .combine = 'c') %do%
+  {cluster_k = kmeans(X, k, nstart = 50)
+  W = cluster_k$tot.withinss
+  B = cluster_k$betweenss
+  CH = (B/W) * ((N-k)/(k-1))
+  CH
+  }
+
+plot(k_grid, CH_grid, main = 'CH INDEX') # choose 4 and call it a day
+
+#clusGAP
+#library(cluster)
+#clusGAP = clusGap(X,FUN = kmeans, nstart = 10, K.max = 10, B =5)
+
+# on average kmeans++ does better, but it varies on each run
+```
+
+To choose k for a k-means and k-means++ model, we used an elbow plot and the CH index.
+We chose a k of 4 because, we found that the greatest reduction in SSE was between k=2 and k=5. We also attempted to use the gap statistic, but it the bootstrapping required more processing than our computers could handle.
+
+### K-Means Clusters
+
+``` {r echo=FALSE}
+# Run k-means with 4 clusters and 25 starts and pick the one with the lowest sum of squares
+clust1 = kmeans(X, 4, nstart=25)
+
+### Note that Tweets are randomly clustered together each time so comments might not align with the right cluster, but are generally true.
+
+# What are the clusters?
+#clust1$center  # not super helpful (on z score scale)
+clust1$center[1,]*sigma + mu # reversing the scale to make it interpretable
+clust1$center[2,]*sigma + mu
+clust1$center[3,]*sigma + mu
+clust1$center[4,]*sigma + mu
+# ^generally descriptive of each cluster
+
+# Which users are in which clusters?
+#which(clust1$cluster == 1)
+#which(clust1$cluster == 2)
+#which(clust1$cluster == 3)
+#which(clust1$cluster == 4)
+
+
+# A few plots with cluster membership shown
+# qplot is in the ggplot2 library
+#qplot(college_uni, online_gaming, data=social_marketing, color=factor(clust1$cluster)) # just looking at length vs weight
+#qplot(health_nutrition, personal_fitness, data=social_marketing, color=factor(clust1$cluster)) # now looking at mpg vs horsepower
+```
+
+### K-means++ Clusters
+
+``` {r echo=FALSE}
+# Using kmeans++ initialization
+clust2 = kmeanspp(X, k=4, nstart=25)
+help(kmeanspp)
+
+clust2$center[1,]*sigma + mu
+clust2$center[2,]*sigma + mu
+clust2$center[3,]*sigma + mu
+clust2$center[4,]*sigma + mu
+
+# Which users are in which clusters?
+#which(clust2$cluster == 1)
+#which(clust2$cluster == 2)
+#which(clust2$cluster == 3)
+#which(clust2$cluster == 4)
+```
+
+```{r echo=FALSE}
+
+# Compare versus within-cluster average distances from the first run
+# within cluster vectors
+print(paste('K-means within cluster sum of squares: ',clust1$withinss))
+print(paste('K-means++ within cluster sum of squares: ', clust2$withinss))
+
+print(paste('K-means total within cluster sum of squares: ', sum(clust1$tot.withinss)))
+print(paste('K-means++ total within cluster sum of squares: ', sum(clust2$tot.withinss)))
+
+print(paste('K-means total between cluster sum of squares: ', clust1$betweenss))
+print(paste('K-means++ total between cluster sum of squares: ', clust2$betweenss))
+
+print('There is very little variation between the clusters obtained through K-means and K-means++ with 4 clusters')
+
+#doesn't seem like there's much difference between kmeans and kmeans++
+```
+
+### PCA
+```{r include = FALSE}
+
+library(ggplot2)
+library(tidyverse)
+
+# First normalize phrase counts to phrase frequencies.
+# (often a sensible first step for count data, before z-scoring)
+Z = X/rowSums(X)
+# PCA
+pc2 = prcomp(Z, scale=TRUE, rank=5)
+loadings = pc2$rotation
+scores = pc2$x
+
+```
+
+```{r echo=FALSE}
+
+summary(pc2)
+
+# Question 1: where do the observations land in PC space?
+# a biplot shows the first two PCs
+qplot(scores[,1], scores[,2], xlab='Component 1', ylab='Component 2')
+
+
+# With labels
+#qplot(scores[,1], scores[,2], xlab='Component 1', ylab='Component 2') + geom_text(aes(label=rownames(X)),hjust=0, vjust=0)
+
+qplot(scores[,1], scores[,2], xlab='Component 1', ylab='Component 2') + geom_text(aes(label=ifelse(scores[,2]<(-50),as.character(rownames(X)),'')),hjust=0,vjust=0)
+
+# Interpretation: the first PC axis primarily has Republicans as positive numbers and Democrats as negative numbers
+
+# Question 2: how are the individual PCs loaded on the original variables?
+# The top words associated with each component
+```
+
+#### Most Common Loadings in each Component:
+
+```{r echo=FALSE}
+o1 = order(loadings[,1], decreasing=TRUE) 
+print(paste('Component 1 top 4:'))
+colnames(Z)[head(o1,4)]
+print(paste('Component 1 bottom 4:'))
+colnames(Z)[tail(o1,4)]
+print(paste('Component 2 top 4:'))
+o2 = order(loadings[,2], decreasing=TRUE) 
+colnames(Z)[head(o2,4)]
+print(paste('Component 4 bottom 4:'))
+colnames(Z)[tail(o2,4)]
+
+o3 = order(loadings[,3], decreasing=TRUE) 
+print(paste('Component 3 top 4:'))
+colnames(Z)[head(o3,4)]
+print(paste('Component 3 bottom 4:'))
+colnames(Z)[tail(o3,4)]
+
+o4 = order(loadings[,4], decreasing=TRUE) 
+print(paste('Component 4 top 4:'))
+colnames(Z)[head(o4,4)]
+print(paste('Component 4 bottom 4:'))
+colnames(Z)[tail(o4,4)]
+
+o5 = order(loadings[,5], decreasing=TRUE) 
+print(paste('Component 5 top 4:'))
+colnames(Z)[head(o4,4)]
+print(paste('Component 5 bottom 4:'))
+colnames(Z)[tail(o4,4)]
+
+```
+
+### Discussion of Analysis
+
+After scaling the variables by frequency, the k-means and k-means++ defined the 4 clusters as such:
+
+1. Health and nutrition, cooking, personal fitness, photo sharing, fashion, college_uni
+
+2. Photo sharing, current events, college_uni, travel
+
+3. Politics, travel, news, photo sharing, computers, automotive, sports_fandom
+
+4. Sports_fandom, religion, parenting, school, photo_sharing, family
+
+From a top-level view, we can identify potential demographics and segment them into subsets based on their particular interests. The first potential target audience is college students which was indicated by tweets under the "college_uni" label. This label was often clustered with health and nutrition, cooking, personal fitness, and photo sharing. We can identify a potential market segment as college-aged females, like those in sororities, since they often times set fashion trends through photo sharing where they also highlight health-consciousness and healthy eating. Because health awareness in this demographic is so significant, sleeker "zero calorie" products would also be well-received.  
+
+A second subset of college students could be study abroad or international students, as the "college_uni" tag was also clustered with photo sharing, current events, and travel. Individuals also interested in travel and current events could also be interested in designs that keep utility in mind and could be indicative of a following in other countries. NutrientH2O could therefore investigate this further by investing in their international marketing and maybe consider selling their products in travel hubs like airports.
+
+The third subset includes several users that tweet a lot about politics, travel, and news, along with computers, automotives, and sports. These individuals could also be college students, specifically, male college students or young professionals. Individuals interested in these topics can often be found in college business fraternities. Because the demographic is similar to the sorority segment, a more electrolyte-rich, masculine design would likely be well-received by this target audience.
+
+The fourth and final cluster consists of seemingly religious parents of school-age children who are also sports fans. The sorority design could therefore be applied to health conscious, upper-class, stay-at-home mothers. Conversely, the masculine, fraternity design could also appeal to fathers in their mid-30s who may enjoy congregating for sports events and barbecues. 
+
+### Takeaway
+Because many of the market segments consist of college-aged individuals who may be a part of student organizations such as sororities or fraternities, and there are clusters of older individuals who tweet a lot about religion and politics, marketing to upper-class and likely conservative individuals would benefit NutrientH2O's brand.
+
+NutrientH2O should have an image that appeals mostly to young adults, but that is also inclusive of parents of school-age children. We recommend enhancing the product's image of trendiness, healthiness, and portability. This can be achieved through direct marketing to these clusters.
+
+\newpage
+
+```{r}
+print('All loadings:')
+loadings
+```
+
+\newpage
+
+# Author Attribution
+
+First, we will load the libraries needed to read in each author and their articles, parse the article sentences into unique words, and build the word frequency matrices.
+
+```{r load libraries for author attribution, include=TRUE}
+rm(list=ls())
+
+library(tm) 
+library(tidyverse)
+library(slam)
+library(proxy)
+
+```
+
+Now, we need a function to read the a plain text document in English.
+
+```{r plain text reader, include=TRUE}
+readerPlain = function(fname){
+				readPlain(elem=list(content=readLines(fname)), 
+							id=fname, language='en')}
+
+```
+
+## Reading in the Data
+
+We will now "glob" all of the articles for each author in the train and test datasets. Then we will apply are plain text reader function to read each of the articles.
+
+```{r glob and read in, include=TRUE}
+file_list = Sys.glob('~/MSBAsummer20/STA380-master/data/ReutersC50/*/*/*.txt')
+full_set = lapply(file_list, readerPlain)
+
+```
+
+Since we read all of the articles in at once, the test articles were read in first, then the train articles. Let's check to make sure that the last "test" article is at row 2500 and the first "train" articles is at row 2501. 
+
+```{r test and train validation}
+file_list[2500]
+file_list[2501]
+
+```
+
+With that varified, now we can clean up teh file names to just show the author name. This will help us later when we attribute the test articles to a specificy author.
+
+```{r clean articles names}
+mynames = file_list %>%
+  { strsplit(., '/', fixed=TRUE) } %>%
+  { lapply(., function(x) x[length(x) -1])} %>%
+  unlist
+
+```
+
+Let's look at the names to make sure they are pretty and then rename our articles.
+
+```{r rename the articles}
+print(mynames[1:10])
+names(full_set) = mynames
+
+```
+
+## Create the Corpus
+
+Now we need to create the Corpus (i.e. the body of text) with which we are going to use in our analysis.
+
+
+```{r create the corpus}
+documents_raw = Corpus(VectorSource(full_set))
+
+```
+
+## Data Pre-Processing
+
+With the raw text data in hand, we need to do some pre-processing to make it suitable for analysis. We will make everything lowercase, remove numbers and punctuation, and remove excess whitespace.
+
+```{r preprocess and tokenization}
+my_documents = documents_raw %>%
+  tm_map(content_transformer(tolower))  %>%       
+  # make everything lowercase
+  tm_map(content_transformer(removeNumbers)) %>%  
+  # remove numbers
+  tm_map(content_transformer(removePunctuation)) %>%  
+  # remove punctuation
+  tm_map(content_transformer(stripWhitespace))          
+  # remove excess white-space
+
+```
+
+Now we need to remove "stopwords" from the text. In this context, "stopwords" are very common words that fill up text like, "the", "a", "it", etc. Removing these words helps distinguish the more important words in the text. In our case, we will be removing "stopwords" from the SMART information retrieval system.
+
+```{r removing stopwords}
+my_documents = tm_map(my_documents,
+                      content_transformer(removeWords),
+                      stopwords("SMART"))
+
+```
+
+## Document-term-matrix and TF-IDF Weighting
+
+Now we will create a doc-term-matrix (DTM). The rows of the matrix represent a particular document, while the columns represent the words found in the documents. Each cell is a count of how may times a word appears in a document. 
+
+```{r doc-term-matrix creation}
+DTM_full_set = DocumentTermMatrix(my_documents)
+
+# looking at th first 10 rows of the first 5 terms
+inspect(DTM_full_set[1:10,1:5])
+
+```
+
+We can also look at the most frequent terms with a minimum of 5000 counts...
+
+```{r frequency counts for dtm}
+findFreqTerms(DTM_full_set, 5000)
+
+```
+
+We will drop terms that sparse. However, we will keep most of the terms present since we are going to run Principle Components Analysis (PCA) and we want to preserve as much information as possible. 
+
+We are removing terms that have more than 99% 0 values. This effectively drops words that only appear in one or two documents.
+
+```{r drop sparse terms}
+DTM_full_set = removeSparseTerms(DTM_full_set, 0.99)
+DTM_full_set
+
+```
+
+Now we are going to weight the terms of our DTM using the TF-IDF method. This will weight words that appear frequently in documents but are rare in the entire corpus of text. For example, if the word "trade" appears in all of the documents, then it will not be weighted heavily, since that word does not help distinguish the articles from one another. On the other hand, if one or two documents use the word "brexit" while no other documents use it, this word gets a heavier weight since it distinguishes those particular documents from the rest.
+
+```{r tf idf weighting}
+tfidf_full_set = weightTfIdf(DTM_full_set)
+tfidf_full_set
+
+```
+
+## Principle Component Analysis
+
+Now that we have a matrix of terms weighted by their importance to a specific document, we can use these terms to try and find authors who of similar articles. However, we have over 3000 terms in our matrix. This high of dimensionality is likely to cause noise in our predictive model and confuse our results. To work around this issue, we will run PCA to construct new variables for our predictive model. These summaries of the term matrix will help preserve as much information from the Corpus without having too high of dimenionlity.
+
+```{r pca for text analysis}
+X = as.matrix(tfidf_full_set)
+
+# remove sparse columns
+scrub_cols = which(colSums(X) == 0)
+X = X[,-scrub_cols]
+
+# taking the top 600 PCs
+pca_full_set = prcomp(X, scale=TRUE, rank. = 600)
+
+```
+
+We can look at some of the loadings of the frist two PCs...
+
+```{r look at first two PCs}
+pca_full_set$rotation[order(abs(pca_full_set$rotation[,1]),
+                            decreasing=TRUE),1][1:25]
+pca_full_set$rotation[order(abs(pca_full_set$rotation[,2]),
+                            decreasing=TRUE),2][1:25]
+```
+
+## Train and Test Data
+
+With out principle components made, we can now split the data into test and train data. The first 2500 documents were from the test articles and the second half of the Corpus was from the train articles.
+
+We will only use the first 300 PCs in our train and test data.
+
+```{r}
+# get the test data
+X_test = pca_full_set$x[1:2500,1:300] # 300 PCs
+y_test = {mynames[1:2500]}
+
+# put test data in a data frame
+test_data = data.frame(y_test,X_test)
+test_data$y_test = factor(test_data$y_test) # making the y variable a factor
+
+# get train data
+X_train = pca_full_set$x[2501:5000,1:300] # 300 PCs
+y_train = {mynames[2501:5000]}
+
+# put train data in a dataframe
+train_data = data.frame(y_train,X_train)
+train_data$y_train = factor(train_data$y_train) # making the y variable a factor
+
+```
+
+## Model Building and Selection
+
+### KNN Classifier
+
+Let's begin by using a KNN classifier to predict the authors for the test articles. 
+
+```{r KNN for author attr}
+library(class)
+
+knn.pred=knn(X_train, 
+             X_test, 
+             y_train,
+             k=7) # 1 nearest neighbors
+
+mean(knn.pred==y_test)
+
+```
+
+The KNN classifier, with 7 nearest neighbors, produced a 54% accuracy on the test data. Keep in mind, the naive rule for classifying any author would give an accuracy of 2% (1/50). So, the model is not fantastic, but it is significantly better than randomly guessing the author.
+
+### Random Forest Classifier
+
+Let's try a random forest classifier with 1000 trees. The number of variables considered at each tree is the square room of *P* with *P* being the number of variables in the model.
+
+```{r random forest for author attr}
+library(randomForest)
+
+rffit = randomForest(y_train~.,
+                     data=train_data,
+                     ntree=1000)
+
+# A confusion matrix of y-hat and test_y
+CM = table(predict(rffit, newdata = test_data), test_data$y_test)
+
+# summing the diagonals and dividing by the total
+test_accuracy = (sum(diag(CM)))/sum(CM)
+
+test_accuracy
+
+```
+
+The random forest preformed better than the KNN model, with about a 60% accuracy on the test data.
+
+### Support Vector Machine
+
+Finally, we will fit a support vector machine (SVM) to predict the authors of our test data.
+
+```{r}
+library(e1071)
+
+svmfit = svm(y_train~., 
+             data=train_data, 
+             kernel ="sigmoid", # tanh(gamma*u'*v + coef0)
+             cross = 10, # k-fold k=10 cross validation
+             cost = 1) # cost of constraint violation
+
+# A confusion matrix of y-hat and test_y
+CM = table(predict(svmfit,newdata = test_data),test_data$y_test)
+
+test_accuracy = (sum(diag(CM)))/sum(CM)
+
+test_accuracy
+```
+
+With the SVM we got slightly better results than the random forest with an accuracy of about 62% on the test data.
+
+\newpage
+
+# Association rule mining
+
+This data set contains 9835 baskets of groceries. The most frequent items are seen below with a minimum support of 0.1 meaning they show up in 10% of all baskets.
+
+```{r mostcommon}
+rm(list = ls())
+
+library(arules)
+library(arulesViz)
+groceries = read.transactions("~/MSBAsummer20/STA380-master/data/groceries.txt", rm.duplicates=TRUE, format="basket", sep=",")
+itemFrequencyPlot(groceries, support=0.1)
+```
+
+Next, lets examine the most common rules seen in the shopping trends with a support of 0.05 and a confidence of 0.1. Confidence indicates how often the rule is true, so this will give us rules that will be true 10% of the time. A high support and confidence will select out the most common purchases made together most of the time. From this subset, we sort the top 10 by lift to examine the rules that have the strongest correlations between the left hand items and right hand items of the rule.
+
+```{r toprules}
+grocery_rules = apriori(groceries, parameter=list(support=.05, confidence=.1))
+inspect(head(sort(grocery_rules, by = "lift"), 10))
+```
+
+## Whole Milk Subset
+
+Focusing on the most common item, whole milk, we generate a set of rules with a support of 0.001 and a confidence of 0.08. Selecting a unique subset, we lower the support but only lower the confidence slightly to keep strong rules.
+
+```{r wholemilk}
+milk_rules <- apriori(data=groceries, parameter=list (supp=0.001,conf = 0.08), appearance = list (rhs="whole milk"))
+plot(milk_rules)
+```
+
+The top ten rules by confidence.
+
+```{r wholemilk3, echo=FALSE}
+inspect(head(sort(milk_rules, by = "confidence"), 10))
+```
+
+```{r wholemilk4}
+subrulesmilk <- head(milk_rules, n = 10, by = "lift")
+plot(subrulesmilk, method = "paracoord")
+```
+
+Examining the results for whole milk, baskets show trends of dairy products being bought together.
+
+## Alcohol Subset
+
+Looking closer at the purchase patterns associated with alcohol purchases such as red wine, beer and liquor, allows the store to understand common trends about their premium items. We lower the support slightly as these are less common items purchased while still keeping the confidence the same to show strong rules.
+
+```{r alcohol}
+redwine_rules <- apriori(data=groceries, parameter=list (supp=0.0005,conf = 0.08), appearance = list (rhs="red/blush wine"))
+plot(redwine_rules)
+```
+
+Top ten rules for red wine by confidence.
+
+```{r alchol2, echo=FALSE}
+inspect(head(sort(redwine_rules, by = "confidence"), 10))
+```
+
+```{r wine paracoord}
+subruleswine <- head(redwine_rules, n = 10, by = "confidence")
+plot(subruleswine, method = "paracoord")
+```
+
+Liquor rules. Lowered the support slightly as liquor is a less common purchase than red wine. 
+
+```{r alcohol3}
+liquor_rules <- apriori(data=groceries, parameter=list (supp=0.0001,conf = 0.08), appearance = list (rhs="liquor"))
+plot(liquor_rules)
+```
+
+```{r alcohol4, echo=FALSE}
+inspect(head(sort(liquor_rules, by = "confidence"), 10))
+```
+
+```{r alcohol5}
+subrulesliquor <- head(liquor_rules, n = 10, by = "confidence")
+plot(subrulesliquor, method = "paracoord")
+```
+
+Beer rules.
+
+```{r alcohol6}
+beer_rules <- apriori(data=groceries, parameter=list (supp=0.001,conf = 0.08), appearance = list (rhs="bottled beer"))
+plot(beer_rules)
+```
+
+```{r beer rules 1, echo=FALSE}
+inspect(head(sort(beer_rules, by = "confidence"), 10))
+```
+
+```{r beer rules 2}
+subrulesbeer <- head(beer_rules, n = 10, by = "confidence")
+plot(subrulesbeer, method = "paracoord")
+```
+
+### Discussion
+
+Bottled beer, red wine, and liquor all show similar trends and rules. People tend to purchase alcohol items together and along with these items purchases that are typical for parties such as dishes, candy, or cling/film bags.
+
+These insights into consumer purchases can help the grocery store in a variety of ways such as promotions, coupons or item placement. Items, such as liquor that they want to sell more they can promote with other items that are more commonly purchased. They can also place party items, such as solo cups or soda mixers nearby to these items as they know people tend to purchase these items together. For the more common items like whole milk, it would be helpful to tie these into promotions with less commonly purchased items as they know many people will be coming into buy milk regardless.

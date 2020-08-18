@@ -1,0 +1,245 @@
+---
+title: "STA380 Excercises"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Visual story telling
+
+One of the worst part of flying is all the extra time spent dealing with delays. They can make you late for important deadlines and cause unnecessary stress in an already stressful experience. We will analyze this data set of flights to and from the Austin airport to provide helpful insights on trends in delayed flights.
+
+```{r abia1}
+library(mosaic)
+library(tidyverse)
+library(ggplot2)
+abia = read.csv("~/MSBAsummer20/STA380-master/data/ABIA.csv", stringsAsFactors=FALSE)
+attach(abia)
+depDelay_clean = abia[!is.na(abia$DepDelay), ]
+arrDelay_clean = abia[!is.na(abia$ArrDelay), ]
+summary(abia)
+```
+
+Which airline has the worst departure delays?
+```{r abia2}
+airline_delay = depDelay_clean %>%
+  group_by(UniqueCarrier)  %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(airline_delay, aes(x=reorder(UniqueCarrier, avg_delay_mins), y=avg_delay_mins)) + 
+  geom_bar(stat='identity', color='forest green') +
+  labs(title = "Average departure delay by airline", x="Unique Carrier", y="Delay(mins)")
+```
+
+What about by arrival delays?
+```{r abia3}
+airline_arr_delay = arrDelay_clean %>%
+  group_by(UniqueCarrier)  %>%
+  summarize(avg_delay_mins = mean(ArrDelay))
+
+ggplot(airline_arr_delay, aes(x=reorder(UniqueCarrier, avg_delay_mins), y=avg_delay_mins)) + 
+  geom_bar(stat='identity', color='forest green') +
+  labs(title = "Average arrival delay by airline", x="Unique Carrier", y="Delay(mins)")
+```
+
+When should you leave?
+For this, we will examine the top four most frequent airline fliers to see not only time trends but if different airlines handle these differences in different ways.
+
+Month
+```{r abia4}
+airline_list = c('AA', 'WN', 'CO', 'YV')
+
+flights_per_month = depDelay_clean %>%
+  filter(UniqueCarrier %in% airline_list) %>%
+  group_by(UniqueCarrier, Month) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(flights_per_month, aes(x=Month, y=avg_delay_mins)) + 
+  geom_line( color='forest green') +
+  geom_point( size=4, shape=21, fill="white") +
+  facet_wrap(~ UniqueCarrier, nrow = 2) +
+  theme_bw(base_size=18) +
+  scale_x_continuous(breaks = 1:12) +
+  labs(title = "Average departure delay by month", y="Delay (mins)")
+```
+
+Day of Month
+```{r abia5}
+flights_day_month = depDelay_clean %>%
+  filter(UniqueCarrier %in% airline_list) %>%
+  group_by(UniqueCarrier, DayofMonth) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(flights_day_month, aes(x=DayofMonth, y=avg_delay_mins)) + 
+  geom_line( color='forest green') +
+  facet_wrap(~ UniqueCarrier, nrow = 2) +
+  theme_bw(base_size=18) +
+  scale_x_continuous(breaks = c(1,10,20,30)) +
+  labs(title = "Average departure delay by month", y="Delay (mins)")
+```
+
+Day of Week
+```{r abia6}
+flights_day_week = depDelay_clean %>%
+  filter(UniqueCarrier %in% airline_list) %>%
+  group_by(UniqueCarrier, DayOfWeek) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(flights_day_week, aes(x=DayOfWeek, y=avg_delay_mins)) + 
+  geom_line( color='forest green') +
+  geom_point( size=4, shape=21, fill="white") +
+  facet_wrap(~ UniqueCarrier, nrow = 2) +
+  theme_bw(base_size=18) +
+  scale_x_continuous(breaks = 1:31) +
+  labs(title = "Average departure delay by day of week", y="Delay (mins)")
+```
+
+Delays during the morning
+```{r abia7}
+morning = subset(depDelay_clean, DepTime > 600 & DepTime < 1200)
+
+flights_morning = morning %>%
+  filter(UniqueCarrier %in% airline_list) %>%
+  group_by(UniqueCarrier, DepTime) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(flights_morning, aes(x=DepTime, y=avg_delay_mins)) + 
+  geom_line( color='forest green') +
+  facet_wrap(~ UniqueCarrier, nrow = 2) +
+  theme_bw(base_size=18) +
+  scale_x_continuous(breaks = c(600,700,800,900,1000,1100,1200)) +
+  labs(title = "Average departure delay - morning", y="Delay (mins)")
+```
+
+
+Delays during the afternoon
+```{r abia8}
+afternoon = subset(depDelay_clean, DepTime > 1200 & DepTime < 2000)
+
+flights_afternoon = afternoon %>%
+  filter(UniqueCarrier %in% airline_list) %>%
+  group_by(UniqueCarrier, DepTime) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(flights_afternoon, aes(x=DepTime, y=avg_delay_mins)) + 
+  geom_line( color='forest green') +
+  facet_wrap(~ UniqueCarrier, nrow = 2) +
+  theme_bw(base_size=18) +
+  scale_x_continuous(breaks = c(1200,1400,1600,1800,2000)) +
+  labs(title = "Average departure delay - afternoon", y="Delay (mins)")
+```
+
+Lets examine the top 25 most popular airports. This will remove outliers and noise from the data.
+
+Which destinations are the worst in delaying when you arrive?
+```{r abia9}
+topdest = c('DAL', 'AUS','ATL','DEN','DFW','ELP','HOU','IAH','PHX','ORD','LAX','LAS','JFK','BNA','BWI','EWR','IAD','MDW','LBB','MCO','SAN','SFO','SJC','SLC','FLL')
+
+arr_delay_dest = arrDelay_clean %>%
+  filter(Dest %in% topdest) %>%
+  group_by(Dest) %>%
+  summarize(avg_delay_mins = mean(ArrDelay))
+
+ggplot(arr_delay_dest, aes(x=reorder(Dest, avg_delay_mins), y=avg_delay_mins)) + 
+  geom_bar(stat='identity', color="forest green") +
+  labs(title = "Average arrival delay by Destination", x="Delay (mins)", y="Top Destinations") +
+  coord_flip()
+```
+
+Which places are the worst to leave from in terms of departure delay?
+```{r abia10}
+dep_delay_org = depDelay_clean %>%
+  filter(Origin %in% topdest) %>%
+  group_by(Origin) %>%
+  summarize(avg_delay_mins = mean(DepDelay))
+
+ggplot(dep_delay_org, aes(x=reorder(Origin, avg_delay_mins), y=avg_delay_mins)) + 
+  geom_bar(stat='identity', color="forest green") +
+  labs(title = "Average departure delay by Origin") +
+  coord_flip()
+```
+
+### Summary
+
+# Association Rule Mining
+
+This data set contains 9835 baskets of groceries. The most frequent items are seen below with a minimum support of 0.1 meaning they show up in 10% of all baskets.
+
+```{r mostcommon}
+library(arules)
+library(arulesViz)
+groceries = read.transactions("~/MSBAsummer20/groceries.txt", rm.duplicates=TRUE, format="basket", sep=",")
+itemFrequencyPlot(groceries, support=0.1)
+```
+Next, lets examine the most common rules seen in the shopping trends with a support of 0.05 and a confidence of 0.1. Confidence indicates how often the rule is true, so this will give us rules that will be true 10% of the time. A high support and confidence will select out the most common purchases made together most of the time. From this subset, we sort the top 10 by lift to examine the rules that have the strongest correlations between the left hand items and right hand items of the rule.
+```{r toprules}
+grocery_rules = apriori(groceries, parameter=list(support=.05, confidence=.1))
+inspect(head(sort(grocery_rules, by = "lift"), 10))
+```
+
+# Whole Milk Subset
+
+Focusing on the most common item, whole milk, we generate a set of rules with a support of 0.001 and a confidence of 0.08. Selecting a unique subset, we lower the support but only lower the confidence slightly to keep strong rules.
+```{r wholemilk}
+milk_rules <- apriori(data=groceries, parameter=list (supp=0.001,conf = 0.08), appearance = list (rhs="whole milk"))
+plot(milk_rules)
+```
+The top ten rules by support.
+```{r wholemilk2, echo=FALSE}
+inspect(head(sort(milk_rules, by = "support"), 10))
+```
+The top ten rules by confidence.
+```{r wholemilk3, echo=FALSE}
+inspect(head(sort(milk_rules, by = "confidence"), 10))
+```
+The
+```{r wholemilk4}
+subrulesmilk <- head(milk_rules, n = 10, by = "lift")
+plot(subrulesmilk, method = "paracoord")
+```
+Examining the results for whole milk, baskets show trends of dairy products being bought together.
+
+# Alcohol Subset
+
+Looking closer at the purchase patterns associated with alcohol purchases such as red wine, beer and liquor, allows the store to understand common trends about their premium items. We lower the support slightly as these are less common items purchased while still keeping the confidence the same to show strong rules.
+
+```{r alcohol}
+redwine_rules <- apriori(data=groceries, parameter=list (supp=0.0005,conf = 0.08), appearance = list (rhs="red/blush wine"))
+plot(redwine_rules)
+```
+Top ten rules for red wine by confidence.
+```{r alchol2, echo=FALSE}
+inspect(head(sort(redwine_rules, by = "confidence"), 10))
+```
+
+Liquor rules. Lowered the support slightly as liquor is a less common purchase than red wine. 
+```{r alcohol3}
+liquor_rules <- apriori(data=groceries, parameter=list (supp=0.0001,conf = 0.08), appearance = list (rhs="liquor"))
+plot(liquor_rules)
+```
+
+```{r alcohol4, echo=FALSE}
+inspect(head(sort(liquor_rules, by = "confidence"), 10))
+```
+
+```{r alcohol5}
+subrulesliquor <- head(liquor_rules, n = 10, by = "confidence")
+plot(subrulesliquor, method = "paracoord")
+```
+
+Beer rules.
+```{r alcohol6}
+beer_rules <- apriori(data=groceries, parameter=list (supp=0.01,conf = 0.08), appearance = list (rhs="bottled beer"))
+plot(beer_rules)
+```
+
+Bottled beer, red wine, and liquor all show similar trends and rules. People tend to purchase alcohol items together and along with these items purchases that are typical for parties such as dishes, candy, or cling/film bags.
+
+
+These insights into consumer purchases can help the grocery store in a variety of ways such as promotions, coupons or item placement. Items, such as liquor that they want to sell more they can promote with other items that are more commonly purchased. They can also place party items, such as solo cups or soda mixers nearby to these items as they know people tend to purchase these items together. For the more common items like whole milk, it would be helpful to tie these into promotions with less commonly purchased items as they know many people will be coming into buy milk regardless.
+
+
